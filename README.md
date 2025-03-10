@@ -30,7 +30,7 @@ Once the process completes, you should see the message "Total number of images: 
 
 Create Models folder and download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the folder.
 
-### 3. Train the Face Recognition Model
+### 3. Train the last SVM layer for classify for Face Recognition Model
 
 Train the model to recognize faces using the following command. It will create a model file called facemodel.pkl.
 
