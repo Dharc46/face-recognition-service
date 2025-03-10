@@ -2,7 +2,8 @@
 
 This project allows accurate face recognition using MTCNN and Facenet, built on TensorFlow 2.x.
 
-## Credit to MìAI 
+## Credit to MìAI
+
 [MìAI Face Recognition 2.0](http://miai.vn/2019/09/11/face-recog-2-0-nhan-dien-khuon-mat-trong-video-bang-mtcnn-va-facenet/)
 
 ## Installation & Run
@@ -12,6 +13,7 @@ This project allows accurate face recognition using MTCNN and Facenet, built on 
 ```bash
 git clone https://github.com/Dharc46/facenet-ft-mtcnn-for-exam-web.git
 ```
+
 ```bash
 pip install -r requirements.txt
 ```
@@ -25,6 +27,8 @@ python src/align_dataset_mtcnn.py Dataset/FaceData/raw Dataset/FaceData/processe
 ```
 
 Once the process completes, you should see the message "Total number of images: ..." in the terminal, indicating the preprocessing is successful.
+
+Create Models folder and download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the folder.
 
 ### 3. Train the Face Recognition Model
 
@@ -48,6 +52,4 @@ python src/face_rec_cam.py
 python src/face_rec_image.py --path 'Faces/your_image.jpg'
 ```
 
-*Note: Replace `your_image.jpg` with the name of the image you want to recognize.*
-
-
+_Note: Replace `your_image.jpg` with the name of the image you want to recognize._
