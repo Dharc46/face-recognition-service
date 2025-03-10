@@ -40,7 +40,7 @@ python src/classifier.py TRAIN Dataset/FaceData/processed Models/20180402-114759
 
 ### 4. Results
 
-- To recognize faces using a webcam:
+- To recognize face using camera:
 
 ```bash
 python src/face_rec_cam.py
