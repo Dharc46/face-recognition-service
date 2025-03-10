@@ -1,0 +1,5 @@
+Dataset/FaceData/processed\lamnk\lamnk_11.png 470 266 799 677
+Dataset/FaceData/processed\lamnk\lamnk_12.png 147 162 487 585
+Dataset/FaceData/processed\lamnk\lamnk_13.png 174 166 511 594
+Dataset/FaceData/processed\lamnk\lamnk_14.png 134 179 461 589
+Dataset/FaceData/processed\lamnk\lamnk_15.png 37 96 410 573

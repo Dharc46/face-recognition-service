@@ -1,0 +1,1 @@
+Dataset/FaceData/processed\hoangtv\hoangtv_1.png 493 157 794 534

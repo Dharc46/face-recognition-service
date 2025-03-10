@@ -1,0 +1,15 @@
+Dataset/FaceData/processed\lamnk\lamnk_3.png 458 251 743 625
+Dataset/FaceData/processed\lamnk\lamnk_8.png 487 242 745 584
+Dataset/FaceData/processed\lamnk\lamnk_6.png 472 270 759 642
+Dataset/FaceData/processed\lamnk\lamnk_2.png 500 238 788 622
+Dataset/FaceData/processed\lamnk\lamnk_7.png 463 255 749 631
+Dataset/FaceData/processed\lamnk\lamnk_4.png 414 189 799 682
+Dataset/FaceData/processed\lamnk\lamnk_9.png 379 58 824 605
+Dataset/FaceData/processed\lamnk\lamnk_5.png 455 313 786 720
+Dataset/FaceData/processed\lamnk\lamnk_1.png 466 242 758 623
+Dataset/FaceData/processed\lamnk\lamnk_10.png 386 100 768 610
+Dataset/FaceData/processed\tungnt\tungnt_4.png 457 190 697 498
+Dataset/FaceData/processed\tungnt\tungnt_5.png 498 101 843 540
+Dataset/FaceData/processed\tungnt\tungnt_3.png 211 97 483 477
+Dataset/FaceData/processed\tungnt\tungnt_1.png 295 187 630 605
+Dataset/FaceData/processed\tungnt\tungnt_2.png 540 234 970 792
