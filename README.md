@@ -18,7 +18,7 @@ git clone https://github.com/Dharc46/facenet-ft-mtcnn-for-exam-web.git
 pip install -r requirements.txt
 ```
 
-### 2. Preprocess Data to Extract Faces from Original Images
+### 2. Preprocess Data to Extract Face from Original Images
 
 Run the following command to preprocess and extract faces from your dataset. It will create a processed folder that contains only the cropped faces.
 
