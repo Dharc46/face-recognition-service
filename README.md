@@ -20,6 +20,8 @@ pip install -r requirements.txt
 
 ### 2. Preprocess Data to Extract Face from Original Images
 
+Firstly, you need to create a folder in Dataset/FaceData/raw, then put your image data into it.
+
 Run the following command to preprocess and extract faces from your dataset. It will create a processed folder that contains only the cropped faces.
 
 ```bash
