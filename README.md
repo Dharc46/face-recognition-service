@@ -4,7 +4,7 @@ This project allows accurate face recognition using MTCNN and Facenet, built on 
 
 ## Credit to MìAI and NguyenKhoiLam
 
-[MìAI Face Recognition 2.0](http://miai.vn/2019/09/11/face-recog-2-0-nhan-dien-khuon-mat-trong-video-bang-mtcnn-va-facenet/)
+[MìAI Face Recognition 2.0](http://miai.vn/2019/09/11/face-recog-2-0-nhan-dien-khuon-mat-trong-video-bang-mtcnn-va-facenet/) -- 
 https://github.com/Dharc46
 
 ## Installation & Run
