@@ -113,11 +113,16 @@ docker-compose up -d
 ├── src/
 │   ├── align/                  # Face alignment code
 │   ├── models/                 # Neural network model definitions
-│   ├── classifier.py           # SVM classifier training
-│   ├── facenet.py              # Main FaceNet implementation
-│   ├── face_rec.py             # Real-time recognition from camera
-│   ├── face_rec_image.py       # Recognition from image files
-│   └── align_dataset_mtcnn.py  # Dataset preprocessing
+|   ├── face_recognition_process/
+|       ├── classifier.py           # SVM classifier training
+|       ├── facenet.py              # Main FaceNet implementation
+|       ├── face_rec.py             # Real-time recognition from camera
+|       ├── face_rec_image.py       # Recognition from image files
+|       └── align_dataset_mtcnn.py  # Dataset preprocessing
+|   ├── __init__.py
+|   ├── application.py
+|   ├── face_recognition.db
+|   ├── face_service.log
 ├── Models/                     # Pre-trained models
 ├── Dataset/                    # Training data
 └── requirements.txt            # Python dependencies
