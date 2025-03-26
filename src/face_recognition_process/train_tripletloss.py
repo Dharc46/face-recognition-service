@@ -158,7 +158,7 @@ def main(args):
 
         # Start running operations on the Graph.
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_memory_fraction)
-        sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))        
+        sess = tf.compat.v1.Session(config=tf.ConfigProto(gpu_options=gpu_options))        
 
         # Initialize variables
         sess.run(tf.global_variables_initializer(), feed_dict={phase_train_placeholder:True})

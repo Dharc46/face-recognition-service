@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  face-recognition-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: face-recognition-service
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the models directory to persist trained models
+      - ./Models:/app/Models
+      # Mount the dataset directory to persist registered faces
+      - ./Dataset:/app/Dataset
+    environment:
+      # Add any environment variables your app needs here
+      - TF_FORCE_GPU_ALLOW_GROWTH=true
+    restart: unless-stopped
+
+    # Uncomment the following block if you have NVIDIA GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]

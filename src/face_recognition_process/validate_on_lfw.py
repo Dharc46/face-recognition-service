@@ -45,7 +45,7 @@ def main(args):
   
     with tf.Graph().as_default():
       
-        with tf.Session() as sess:
+        with tf.compat.v1.Session() as sess:
             
             # Read the file containing the pairs used for testing
             pairs = lfw.read_pairs(os.path.expanduser(args.lfw_pairs))

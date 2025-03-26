@@ -61,7 +61,7 @@ def main(args):
         
         embeddings = tf.get_default_graph().get_tensor_by_name("net/embeddings:0")
 
-        with tf.Session() as sess:
+        with tf.compat.v1.Session() as sess:
             tf.train.start_queue_runners(sess=sess)
                 
             embedding_size = int(embeddings.get_shape()[1])
