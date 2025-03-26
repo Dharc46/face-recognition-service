@@ -57,16 +57,16 @@ python src/face_rec_image.py --path 'Faces/your_image.jpg'
 _Note: Replace `your_image.jpg` with the name of the image you want to recognize._
 
 
-Face Recognition Microservice
+#Face Recognition Microservice
 This is a FastAPI-based microservice for face recognition, built on top of the existing MTCNN and FaceNet code. It provides endpoints for registering new faces and recognizing faces in images.
 
-Architecture
+##Architecture
 The service follows the original project's workflow:
 
 Face Detection & Alignment - Using MTCNN
 Feature Extraction - Using FaceNet
 Classification - Using SVM
-API Endpoints
+##API Endpoints
 1. Register a New Face
 Endpoint: POST /register
 
@@ -133,7 +133,7 @@ Copy
 {
   "status": "ok"
 }
-Database Schema
+##Database Schema
 The service uses SQLite to store face registration data:
 
 Table: faces
@@ -142,7 +142,7 @@ id (UUID, primary key): Unique identifier
 name (string): Person's name
 registered_at (datetime): Registration timestamp
 embedding (string): Serialized face embedding data
-Docker Deployment
+##Docker Deployment
 The service is containerized with Docker and can be run using:
 
 bash
@@ -154,12 +154,12 @@ The Docker setup includes:
 TensorFlow 1.15.5 with GPU support
 All necessary Python dependencies
 Volume mounts for dataset and model persistence
-Notes for Integration
+##Notes for Integration
 Model Files: Make sure you have the FaceNet model (20180402-114759.pb) in the Models directory.
 GPU Support: The service is configured to use GPU if available.
 TensorFlow Version: Uses TensorFlow 1.15.5 for compatibility with the existing codebase.
 Database: Uses SQLite by default but can be switched to another database by changing the connection string.
-Error Handling
+##Error Handling
 The service includes robust error handling and logging:
 
 All errors are logged to face_service.log
