@@ -1,4 +1,4 @@
-version: '3.8'
+xwzversion: '3.8'
 
 services:
   face-recognition-app:

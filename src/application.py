@@ -22,6 +22,9 @@ from sqlalchemy import create_engine, Column, String, DateTime, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import logging
+from typing import List, Optional
+from fastapi import Path, Query, HTTPException, Depends
+from sqlalchemy.orm import Session
 
 # Configure logging
 logging.basicConfig(
@@ -79,11 +82,25 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 class RegisterRequest(BaseModel):
     name: str
 
+# Dependency to get the database session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 
 class RecognitionResponse(BaseModel):
     id: str
     name: str
     confidence: float
+    registered_at: datetime
+
+# Add these Pydantic models near the existing ones
+class FaceListResponse(BaseModel):
+    id: str
+    name: str
     registered_at: datetime
 
 
@@ -322,7 +339,7 @@ class FaceRecognitionService:
         logger.info("Training SVM classifier")
 
         # Get the correct path to the classifier.py script
-        classifier_script_path = os.path.join(BASE_DIR, "src", "classifier.py")
+        classifier_script_path = os.path.join(BASE_DIR, "src/face_recognition_process", "classifier.py")
         logger.info(f"Classifier script path: {classifier_script_path}")
 
         if not os.path.exists(classifier_script_path):
@@ -781,11 +798,123 @@ async def recognize_face(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Recognition failed: {str(e)}")
 
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "ok"}
 
+@app.get("/faces", response_model=List[FaceListResponse])
+async def list_faces(db: Session = Depends(get_db)):
+    """
+    List all registered faces in the database.
+    
+    Returns:
+    - List of all registered faces with their ID, name, and registration timestamp
+    """
+    try:
+        logger.info("Listing all registered faces")
+        
+        # Query all faces from the database
+        faces = db.query(FaceData).all()
+        
+        # Convert to response model
+        response = [
+            FaceListResponse(
+                id=face.id,
+                name=face.name,
+                registered_at=face.registered_at
+            ) for face in faces
+        ]
+        
+        logger.info(f"Returning {len(response)} registered faces")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error listing faces: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to list faces: {str(e)}")
+
+@app.delete("/faces/{face_id}")
+async def delete_face(face_id: str = Path(..., description="The ID of the face to delete"), 
+                      db: Session = Depends(get_db)):
+    """
+    Delete a registered face by ID.
+    
+    Parameters:
+    - face_id: The unique ID of the face to delete
+    
+    Returns:
+    - Success message if deletion was successful
+    """
+    try:
+        logger.info(f"Deleting face with ID: {face_id}")
+        
+        # Get the face from the database
+        face = db.query(FaceData).filter(FaceData.id == face_id).first()
+        
+        if not face:
+            logger.warning(f"Face with ID {face_id} not found in database")
+            raise HTTPException(status_code=404, detail=f"Face with ID {face_id} not found")
+        
+        # Remember the person's name before deletion
+        person_name = face.name
+        logger.info(f"Found face: {person_name} with ID {face_id}")
+        
+        # Delete from database
+        db.delete(face)
+        db.commit()
+        logger.info(f"Deleted face record from database")
+        
+        # Check if there are any more faces for this person
+        remaining_faces = db.query(FaceData).filter(FaceData.name == person_name).count()
+        logger.info(f"Remaining faces for {person_name}: {remaining_faces}")
+        
+        # If no more faces for this person, delete their images from filesystem
+        if remaining_faces == 0:
+            # Delete from raw dataset
+            raw_person_dir = os.path.join(RAW_DATASET_DIR, person_name)
+            if os.path.exists(raw_person_dir):
+                shutil.rmtree(raw_person_dir)
+                logger.info(f"Deleted raw dataset directory for {person_name}")
+            
+            # Delete from processed dataset
+            processed_person_dir = os.path.join(PROCESSED_DATASET_DIR, person_name)
+            if os.path.exists(processed_person_dir):
+                shutil.rmtree(processed_person_dir)
+                logger.info(f"Deleted processed dataset directory for {person_name}")
+            
+            # Retrain the classifier if the person was deleted
+            if os.path.exists(CLASSIFIER_PATH):
+                try:
+                    # Only retrain if there are still other people in the dataset
+                    if len(os.listdir(PROCESSED_DATASET_DIR)) > 0:
+                        logger.info("Retraining classifier after deleting person")
+                        face_service.train_classifier()
+                    else:
+                        # If no people left, delete the classifier
+                        os.remove(CLASSIFIER_PATH)
+                        logger.info("Deleted classifier as no people remain in dataset")
+                except Exception as e:
+                    logger.error(f"Error retraining classifier: {str(e)}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "message": f"Successfully deleted face with ID {face_id}"
+            }
+        )
+        
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions
+        
+    except Exception as e:
+        logger.error(f"Error deleting face: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to delete face: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

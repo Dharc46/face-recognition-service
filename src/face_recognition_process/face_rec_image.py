@@ -90,7 +90,7 @@ def main():
                             print(f"Name: {best_name}, Probability: {best_class_probabilities}")
 
                             # If confidence is high enough, print the result
-                            if best_class_probabilities > 0.8:
+                            if best_class_probabilities > 0.7:
                                 print(f"Detected face: {best_name} with confidence: {round(best_class_probabilities[0], 3)}")
                             else:
                                 print("Unknown face detected")
