@@ -2,11 +2,6 @@
 
 This project allows accurate face recognition using MTCNN and Facenet, built on TensorFlow 2.x.
 
-## Credit to MìAI and NguyenLamKien
-
-[MìAI Face Recognition 2.0] (https://github.com/KienNL1927/face-recognition-service)
-## Installation & Run
-
 ### 1. Clone the repository and install dependencies
 
 ```bash
