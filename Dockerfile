@@ -24,4 +24,4 @@ EXPOSE 8000
 WORKDIR /app/src
 
 # Lệnh chạy ứng dụng khi container khởi động
-CMD ["uvicorn", "src.application:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+CMD ["uvicorn", "application:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
