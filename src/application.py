@@ -10,20 +10,17 @@ import pickle
 import tensorflow as tf
 # Disable eager execution for TensorFlow 2.x compatibility
 tf.compat.v1.disable_eager_execution()
-
 import numpy as np
 import cv2
 import align.detect_face
 from face_recognition_process import facenet
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Query, Path
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, String, DateTime, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import logging
-from typing import List, Optional
-from fastapi import Path, Query, HTTPException, Depends
 from sqlalchemy.orm import Session
 
 # Configure logging
@@ -487,6 +484,7 @@ class FaceRecognitionService:
                 import traceback
                 logger.error(traceback.format_exc())
                 return False
+            
     def detect_faces(self, image_path):
         """Detect faces in an image and return the face data"""
         logger.info(f"Detecting faces in {image_path}")
@@ -629,75 +627,109 @@ app.add_middleware(
 # Initialize face recognition service
 face_service = FaceRecognitionService()
 
+# Helper functions:
+def is_image_blurry(gray_img: np.ndarray, threshold: float = 100.0) -> bool:
+    """Trả về True nếu variance của Laplacian < threshold (tức là ảnh mờ)."""
+    return cv2.Laplacian(gray_img, cv2.CV_64F).var() < threshold
+
+def is_image_bright_or_dark(gray_img: np.ndarray,
+                            min_brightness: float = 30,
+                            max_brightness: float = 220) -> bool:
+    """Trả về True nếu độ sáng trung bình < min hoặc > max."""
+    mean_b = float(np.mean(gray_img))
+    return mean_b < min_brightness or mean_b > max_brightness
 
 @app.post("/register")
 async def register_face(
-        name: str = Form(...),
-        images: List[UploadFile] = File(...),  # This expects multiple files with the same field name 'images'
+    name: str = Form(...),
+    images: List[UploadFile] = File(...)
 ):
     """
-    Register a new person with multiple face images.
+    Đăng ký một người mới với đúng 3 ảnh khuôn mặt.
 
-    - name: Name of the person to register
-    - images: Multiple images of the person's face
+    - name: Tên của người đăng ký
+    - images: Danh sách đúng 3 file ảnh
     """
+    logger.info(f"Đang đăng ký khuôn mặt mới: {name}")
+
+    # 1) Bắt buộc phải đúng 3 ảnh
+    if len(images) != 3:
+        raise HTTPException(status_code=400, detail="Bạn phải tải lên đúng 3 ảnh.")
+
+    # Tạo ID và thư mục tạm
+    face_id = str(uuid.uuid4())
+    person_dir = os.path.join(RAW_DATASET_DIR, name)
+    os.makedirs(person_dir, exist_ok=True)
+
+    valid_paths = []               # sẽ chứa các path ảnh đạt chuẩn
+    errors: dict[int, List[str]] = {}  # key=thứ tự ảnh, value=list lý do
+
+    # 2) Lưu tạm và validate từng ảnh
+    for idx, upload in enumerate(images, start=1):
+        img_path = os.path.join(person_dir, f"{face_id}_{idx}.jpg")
+        with open(img_path, "wb") as f:
+            shutil.copyfileobj(upload.file, f)
+
+        img = cv2.imread(img_path)
+        if img is None:
+            errors.setdefault(idx, []).append("Không đọc được file ảnh")
+            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Không đọc được file")
+            continue
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # Kiểm tra mờ
+        if is_image_blurry(gray):
+            errors.setdefault(idx, []).append("Ảnh bị mờ")
+            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Ảnh bị mờ")
+
+        # Kiểm tra sáng/tối
+        if is_image_bright_or_dark(gray):
+            errors.setdefault(idx, []).append("Ảnh quá sáng hoặc quá tối")
+            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Ảnh quá sáng/quá tối")
+
+        # Nếu không có lỗi, thêm vào valid_paths
+        if idx not in errors:
+            valid_paths.append(img_path)
+
+    # 3) Nếu chưa đủ 3 ảnh hợp lệ, trả về lỗi chi tiết multiline
+    if len(valid_paths) < 3:
+        error_messages = ["Đăng ký thất bại: 400", "Các ảnh không hợp lệ:"]
+        for idx, reasons in errors.items():
+            for reason in reasons:
+                error_messages.append(f"Ảnh thứ {idx} không hợp lệ: {reason}")
+
+        raise HTTPException(status_code=400, detail=error_messages)
+
+    logger.info(f"Đã lưu {len(valid_paths)} ảnh hợp lệ cho {name}")
+
+    # 4) Tiếp tục flow cũ: align → train → lưu DB
+    if not face_service.align_faces(name):
+        raise HTTPException(status_code=500, detail="Căn chỉnh khuôn mặt thất bại")
+    if not face_service.train_classifier():
+        raise HTTPException(status_code=500, detail="Huấn luyện bộ phân loại thất bại")
+
+    db = SessionLocal()
     try:
-        logger.info(f"Registering new face: {name}")
-
-        # Generate a unique ID
-        face_id = str(uuid.uuid4())
-
-        # Create directory for this person if it doesn't exist
-        person_dir = os.path.join(RAW_DATASET_DIR, name)
-        os.makedirs(person_dir, exist_ok=True)
-
-        # Save all uploaded images
-        saved_paths = []
-        for i, image in enumerate(images):
-            image_path = os.path.join(person_dir, f"{face_id}_{i}.jpg")
-            with open(image_path, "wb") as f:
-                shutil.copyfileobj(image.file, f)
-            saved_paths.append(image_path)
-
-        logger.info(f"Saved {len(saved_paths)} images for {name}")
-
-        # Use the single alignment method
-        if not face_service.align_faces(name):
-            raise HTTPException(status_code=500, detail="Face alignment failed")
-
-        # Train classifier
-        if not face_service.train_classifier():
-            raise HTTPException(status_code=500, detail="Classifier training failed")
-
-        # Save to database
-        db = SessionLocal()
-        try:
-            db_face = FaceData(
-                id=face_id,
-                name=name,
-                registered_at=datetime.now()
-            )
-            db.add(db_face)
-            db.commit()
-            logger.info(f"Successfully registered {name} with ID {face_id}")
-        finally:
-            db.close()
-
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "success",
-                "message": f"Registered {name} with {len(images)} images",
-                "id": face_id
-            }
+        db_face = FaceData(
+            id=face_id,
+            name=name,
+            registered_at=datetime.now()
         )
+        db.add(db_face)
+        db.commit()
+        logger.info(f"Đã đăng ký thành công {name} với ID {face_id}")
+    finally:
+        db.close()
 
-    except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
-
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "success",
+            "message": f"Đã đăng ký {name} với {len(valid_paths)} ảnh hợp lệ",
+            "id": face_id
+        }
+    )
 
 @app.post("/recognition")
 async def recognize_face(image: UploadFile = File(...)):

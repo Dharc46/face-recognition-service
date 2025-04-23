@@ -1,27 +1,43 @@
-# Sử dụng image Python chính thức làm base image
-FROM python:3.10-slim
+# Stage 1: Build dependencies (Cài đặt dependencies trong image build tạm thời)
+FROM python:3.9-slim AS build
 
-# Thiết lập thư mục làm việc trong container
+# Set environment variables to prevent interactive prompts
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Cài đặt các dependencies hệ thống cần thiết
-RUN apt-get update && apt-get install -y \
-    libopencv-dev \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Copy requirements.txt to the container
+COPY requirements.txt /app/
 
-# Sao chép file requirements.txt và cài đặt các thư viện
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies needed for TensorFlow and others
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev && \
+    pip install --no-cache-dir -r requirements.txt && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Sao chép toàn bộ mã nguồn vào container
-COPY . .
+# Stage 2: Final image (Chạy ứng dụng và cắt bỏ các file build không cần thiết)
+FROM python:3.9-slim
 
-# Mở port 8000 để truy cập ứng dụng FastAPI
+# Set environment variables to prevent interactive prompts
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Copy only the necessary files from the build stage (dependencies and libraries)
+COPY --from=build /usr/local /usr/local
+
+# Copy the application code into the container
+COPY . /app/
+
+# Expose port 8000 for the app
 EXPOSE 8000
 
 WORKDIR /app/src
 
-# Lệnh chạy ứng dụng khi container khởi động
-CMD ["uvicorn", "application:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Command to run the FastAPI app
+CMD ["uvicorn", "application:app", "--host", "0.0.0.0", "--port", "8000"]
