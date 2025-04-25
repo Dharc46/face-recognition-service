@@ -21,7 +21,7 @@ Create Models folder and download Facenet pretrained models (https://bit.ly/3ixQ
 Redirect to src folder
 
 ```bash
-cd srcsrc
+cd src
 ```
 
 ```bash
