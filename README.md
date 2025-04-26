@@ -12,7 +12,7 @@ git clone https://github.com/Dharc46/facenet-ft-mtcnn-for-exam-web.git
 pip install -r requirements.txt
 ```
 
-### 2. Download the modelmodel
+### 2. Download the model
 
 Create Models folder and download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the folder.
 
