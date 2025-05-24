@@ -24,7 +24,8 @@ import unittest
 import tempfile
 import os
 import shutil
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()  # Tắt chế độ TensorFlow 2.x
 import numpy as np
 
 class TrainTest(unittest.TestCase):
@@ -47,22 +48,18 @@ class TrainTest(unittest.TestCase):
         # Try to find values for W and b that compute y_data = W * x_data + b
         # (We know that W should be 0.1 and b 0.3, but TensorFlow will
         # figure that out for us.)
-        W = tf.Variable(tf.random_uniform([1], -1.0, 1.0), name='W')
+        W = tf.Variable(tf.compat.v1.random_uniform([1], -1.0, 1.0), name='W')
         b = tf.Variable(tf.zeros([1]), name='b')
         y = W * x_data + b
         
-        # Minimize the mean squared errors.
         loss = tf.reduce_mean(tf.square(y - y_data))
-        optimizer = tf.train.GradientDescentOptimizer(0.5)
+        optimizer = tf.compat.v1.train.GradientDescentOptimizer(0.5)
         train = optimizer.minimize(loss)
         
-        # Before starting, initialize the variables.  We will 'run' this first.
-        init = tf.global_variables_initializer()
-
-        saver = tf.train.Saver(tf.trainable_variables())
+        init = tf.compat.v1.global_variables_initializer()
+        saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables())
         
-        # Launch the graph.
-        sess = tf.Session()
+        sess = tf.compat.v1.Session()
         sess.run(init)
         
         # Fit the line.
@@ -74,10 +71,9 @@ class TrainTest(unittest.TestCase):
         
         saver.save(sess, os.path.join(self.tmp_dir, "model_ex1"))
         
-        tf.reset_default_graph()
-
-        saver = tf.train.import_meta_graph(os.path.join(self.tmp_dir, "model_ex1.meta"))
-        sess = tf.Session()
+        tf.compat.v1.reset_default_graph()
+        saver = tf.compat.v1.train.import_meta_graph(os.path.join(self.tmp_dir, "model_ex1.meta"))
+        sess = tf.compat.v1.Session()
         saver.restore(sess, os.path.join(self.tmp_dir, "model_ex1"))
         
         w_restored = sess.run('W:0')
@@ -178,4 +174,11 @@ def create_checkpoint_file(model_dir, model_file):
         
 if __name__ == "__main__":
     unittest.main()
-    
+
+# File test này kiểm tra tính chính xác của quá trình lưu (save) và khôi phục (restore) mô hình TensorFlow trong hai trường hợp:
+# 1. Không sử dụng Exponential Moving Average (EMA).
+# Trong trường hợp không sử dụng EMA, nó sẽ kiểm tra xem các trọng số (weights) và bias có được khôi phục đúng từ mô hình đã lưu hay không.
+# 2. Có sử dụng EMA (test này đang bị skip).
+# Trong trường hợp có sử dụng EMA, nó sẽ kiểm tra xem các trọng số và bias đã được EMA lọc có được khôi phục đúng hay không.
+# Mục đích của việc kiểm tra này là đảm bảo rằng quá trình lưu và khôi phục mô hình hoạt động đúng,
+# và các trọng số và bias sau khi khôi phục phải giống với giá trị ban đầu đã được huấn luyện.

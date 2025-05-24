@@ -26,7 +26,7 @@ import numpy as np
 import cv2
 import os
 import shutil
-import download_and_extract  # @UnresolvedImport
+from src.face_recognition_process import download_and_extract  # @UnresolvedImport
 import subprocess
 
 def memory_usage_psutil():
@@ -56,6 +56,7 @@ class TrainTest(unittest.TestCase):
         create_mock_dataset(self.dataset_dir, 160)
         self.lfw_pairs_file = create_mock_lfw_pairs(self.tmp_dir)
         print(self.lfw_pairs_file)
+        os.makedirs('data', exist_ok=True)
         self.pretrained_model_name = '20180402-114759'
         download_and_extract.download_and_extract_file(self.pretrained_model_name, 'data/')
         download_and_extract.download_and_extract_file('lfw-subset', 'data/')
@@ -243,4 +244,9 @@ def create_mock_lfw_pairs(tmp_dir):
 
 if __name__ == "__main__":
     unittest.main()
-    
+
+# Tệp train_test.py này là một bộ kiểm thử tự động (automated test suite)
+# cho các chức năng huấn luyện mô hình nhận diện khuôn mặt trong thư viện face_recognition_process.
+# Nó bao gồm các phương thức kiểm thử cho việc huấn luyện các mô hình khác nhau như Inception ResNet V1, Inception ResNet V2, SqueezeNet,
+# và các phương pháp huấn luyện khác như triplet loss.
+# Các phương thức này sẽ gọi các hàm huấn luyện từ thư viện và kiểm tra xem quá trình huấn luyện có thành công hay không.

@@ -1,0 +1,13 @@
+10	300
+Aaron_Peirsol	1	2
+Aaron_Peirsol	1	3
+Aaron_Peirsol	1	4
+Aaron_Eckhart	1	Aaron_Guiel	1
+Aaron_Guiel	    1	Aaron_Patterson	1
+Aaron_Patterson 1   Aaron_Pena  1
+Aaron_Peirsol	2	3
+Aaron_Peirsol	2	4
+Aaron_Peirsol	3	4
+Aaron_Pena  	1	Aaron_Sorkin 1
+Aaron_Sorkin    1   Aaron_Pena  1
+Aaron_Sorkin    2   Aaron_Patterson	1

@@ -21,13 +21,13 @@
 # SOFTWARE.
 
 import unittest
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.compat.v1.disable_eager_execution()  # Thêm ở đầu file test
 import numpy as np
 import facenet
+from src.face_recognition_process import facenet
 
 class CenterLossTest(unittest.TestCase):
-  
-
 
     def testCenterLoss(self):
         batch_size = 16
@@ -37,8 +37,8 @@ class CenterLossTest(unittest.TestCase):
         
         with tf.Graph().as_default():
         
-            features = tf.placeholder(tf.float32, shape=(batch_size, nrof_features), name='features')
-            labels = tf.placeholder(tf.int32, shape=(batch_size,), name='labels')
+            features = tf.compat.v1.placeholder(tf.float32, shape=(batch_size, nrof_features), name='features')
+            labels = tf.compat.v1.placeholder(tf.int32, shape=(batch_size,), name='labels')
 
             # Define center loss
             center_loss, centers = facenet.center_loss(features, labels, alfa, nrof_classes)
@@ -50,7 +50,7 @@ class CenterLossTest(unittest.TestCase):
                  [ 3,-3],  [ 3,-1],  [ 3,1],  [ 3,3] 
                  ])
                 
-            sess = tf.Session()
+            sess = tf.compat.v1.Session()
             with sess.as_default():
                 sess.run(tf.global_variables_initializer())
                 np.random.seed(seed=666)
@@ -85,3 +85,9 @@ def create_features(label_to_center, batch_size, nrof_features, labels):
                       
 if __name__ == "__main__":
     unittest.main()
+
+# Trong thuật toán Center Loss, mỗi lớp (class) có một "trung tâm" (center) trong không gian đặc trưng (feature space). 
+# Mục tiêu của Center Loss là kéo các đặc trưng (features) của cùng một lớp lại gần center của lớp đó.
+# Các lớp ở đây đề cập đến 16 lớp (classes) trong bài toán phân loại (classification) được mô phỏng trong test case. 
+# Mỗi lớp tương ứng với một category riêng biệt, 
+# và mỗi lớp có một điểm trung tâm (center) được định nghĩa trước trong không gian đặc trưng 2 chiều.

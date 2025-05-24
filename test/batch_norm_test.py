@@ -64,3 +64,6 @@ class BatchNormTest(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
     
+# Unit test testBatchNorm được thiết kế để kiểm tra tính ổn định của batch normalization layer.
+# Nó sẽ kiểm tra xem đầu ra của hai lần truyền qua mạng với phase_train là False có giống nhau hay không.
+# Nếu chúng khác nhau, điều này có thể chỉ ra rằng batch normalization không hoạt động đúng cách.

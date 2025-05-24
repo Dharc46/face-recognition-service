@@ -22,6 +22,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import logging
 from sqlalchemy.orm import Session
+from fastapi.security import APIKeyHeader
 
 # Configure logging
 logging.basicConfig(
@@ -609,6 +610,19 @@ class FaceRecognitionService:
                     logger.warning("No faces detected in the image")
 
                 return faces_data
+            
+# Thêm security scheme cho API key
+api_key_header = APIKeyHeader(name="X-API-Key")
+
+async def verify_api_key(api_key: str = Depends(api_key_header)):
+    # Lấy API_KEY từ biến môi trường (đã được mock trong test)
+    expected_api_key = os.getenv("API_KEY")  
+    if api_key != expected_api_key:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid API Key"
+        )
+    return api_key
 
 # Create FastAPI app
 app = FastAPI(title="Face Recognition Service", version="1.0")
@@ -624,123 +638,173 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Initialize face recognition service
 face_service = FaceRecognitionService()
 
-# Helper functions:
-def is_image_blurry(gray_img: np.ndarray, threshold: float = 100.0) -> bool:
-    """Trả về True nếu variance của Laplacian < threshold (tức là ảnh mờ)."""
-    return cv2.Laplacian(gray_img, cv2.CV_64F).var() < threshold
 
-def is_image_bright_or_dark(gray_img: np.ndarray,
-                            min_brightness: float = 30,
-                            max_brightness: float = 220) -> bool:
-    """Trả về True nếu độ sáng trung bình < min hoặc > max."""
-    mean_b = float(np.mean(gray_img))
-    return mean_b < min_brightness or mean_b > max_brightness
+def validate_image_quality(img_path: str) -> dict:
+    """Hàm helper validate chất lượng ảnh"""
+    img = cv2.imread(img_path)
+    results = {"valid": True, "errors": []}
+
+    if img is None:
+        results["valid"] = False
+        results["errors"].append("Không đọc được file ảnh")
+        return results
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # Kiểm tra độ mờ
+    if cv2.Laplacian(gray, cv2.CV_64F).var() < 100:
+        results["valid"] = False
+        results["errors"].append("Ảnh bị mờ (độ tương phản thấp)")
+
+    # Kiểm tra độ sáng
+    hist = cv2.calcHist([gray], [0], None, [256], [0,256])
+    if np.mean(hist[:64]) > 0.7*np.mean(hist[64:192]):  # Vùng tối chiếm ưu thế
+        results["valid"] = False
+        results["errors"].append("Ảnh thiếu sáng")
+    elif np.mean(hist[192:]) > 0.5*np.mean(hist[64:192]):  # Vùng sáng chiếm ưu thế
+        results["valid"] = False
+        results["errors"].append("Ảnh dư sáng")
+
+    return results
+
 
 @app.post("/register")
 async def register_face(
+    # Xác thực API key trước tiên
+    api_key: str = Depends(verify_api_key),  # 👈 Thêm dependency
     name: str = Form(...),
-    images: List[UploadFile] = File(...)
+    images: List[UploadFile] = File(...),
+    db: Session = Depends(get_db)  # 👈 Sử dụng dependency injection cho database
 ):
     """
-    Đăng ký một người mới với đúng 3 ảnh khuôn mặt.
-
-    - name: Tên của người đăng ký
-    - images: Danh sách đúng 3 file ảnh
+    Đăng ký một người mới với đúng 3 ảnh khuôn mặt (API key required)
     """
-    logger.info(f"Đang đăng ký khuôn mặt mới: {name}")
+    logger.info(f"Bắt đầu đăng ký: {name}")
 
-    # 1) Bắt buộc phải đúng 3 ảnh
-    if len(images) != 3:
-        raise HTTPException(status_code=400, detail="Bạn phải tải lên đúng 3 ảnh.")
-
-    # Tạo ID và thư mục tạm
-    face_id = str(uuid.uuid4())
-    person_dir = os.path.join(RAW_DATASET_DIR, name)
-    os.makedirs(person_dir, exist_ok=True)
-
-    valid_paths = []               # sẽ chứa các path ảnh đạt chuẩn
-    errors: dict[int, List[str]] = {}  # key=thứ tự ảnh, value=list lý do
-
-    # 2) Lưu tạm và validate từng ảnh
-    for idx, upload in enumerate(images, start=1):
-        img_path = os.path.join(person_dir, f"{face_id}_{idx}.jpg")
-        with open(img_path, "wb") as f:
-            shutil.copyfileobj(upload.file, f)
-
-        img = cv2.imread(img_path)
-        if img is None:
-            errors.setdefault(idx, []).append("Không đọc được file ảnh")
-            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Không đọc được file")
-            continue
-
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # Kiểm tra mờ
-        if is_image_blurry(gray):
-            errors.setdefault(idx, []).append("Ảnh bị mờ")
-            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Ảnh bị mờ")
-
-        # Kiểm tra sáng/tối
-        if is_image_bright_or_dark(gray):
-            errors.setdefault(idx, []).append("Ảnh quá sáng hoặc quá tối")
-            logger.warning(f"Ảnh thứ {idx} không hợp lệ: Ảnh quá sáng/quá tối")
-
-        # Nếu không có lỗi, thêm vào valid_paths
-        if idx not in errors:
-            valid_paths.append(img_path)
-
-    # 3) Nếu chưa đủ 3 ảnh hợp lệ, trả về lỗi chi tiết multiline
-    if len(valid_paths) < 3:
-        error_messages = ["Đăng ký thất bại: 400", "Các ảnh không hợp lệ:"]
-        for idx, reasons in errors.items():
-            for reason in reasons:
-                error_messages.append(f"Ảnh thứ {idx} không hợp lệ: {reason}")
-
-        raise HTTPException(status_code=400, detail=error_messages)
-
-    logger.info(f"Đã lưu {len(valid_paths)} ảnh hợp lệ cho {name}")
-
-    # 4) Tiếp tục flow cũ: align → train → lưu DB
-    if not face_service.align_faces(name):
-        raise HTTPException(status_code=500, detail="Căn chỉnh khuôn mặt thất bại")
-    if not face_service.train_classifier():
-        raise HTTPException(status_code=500, detail="Huấn luyện bộ phân loại thất bại")
-
-    db = SessionLocal()
     try:
-        db_face = FaceData(
-            id=face_id,
-            name=name,
-            registered_at=datetime.now()
-        )
-        db.add(db_face)
-        db.commit()
-        logger.info(f"Đã đăng ký thành công {name} với ID {face_id}")
-    finally:
-        db.close()
+        # 1) Validate số lượng ảnh
+        if len(images) != 3:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "invalid_input",
+                    "message": "Yêu cầu chính xác 3 ảnh",
+                    "hint": "Gửi đúng 3 file ảnh qua trường 'images'"
+                }
+            )
 
-    return JSONResponse(
-        status_code=200,
-        content={
-            "status": "success",
-            "message": f"Đã đăng ký {name} với {len(valid_paths)} ảnh hợp lệ",
-            "id": face_id
-        }
-    )
+        # 2) Chuẩn bị thư mục
+        face_id = str(uuid.uuid4())
+        person_dir = os.path.join(RAW_DATASET_DIR, name)
+        os.makedirs(person_dir, exist_ok=True)
+        
+        # 3) Xử lý từng ảnh
+        error_details = []
+        valid_images = []
+
+        for idx, image in enumerate(images, 1):
+            img_path = os.path.join(person_dir, f"{face_id}_{idx}.jpg")
+            
+            # Lưu ảnh tạm
+            with open(img_path, "wb") as f:
+                shutil.copyfileobj(image.file, f)
+            
+            # Validate chất lượng ảnh
+            validation_result = validate_image_quality(img_path)
+            if not validation_result["valid"]:
+                error_details.append({
+                    "image": image.filename,
+                    "position": idx,
+                    "errors": validation_result["errors"]
+                })
+                os.remove(img_path)  # Xóa ảnh không hợp lệ
+            else:
+                valid_images.append(img_path)
+
+        # 4) Xử lý lỗi tổng hợp
+        if len(valid_images) < 3:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "invalid_images",
+                    "valid_count": len(valid_images),
+                    "details": error_details,
+                    "recommendations": [
+                        "Sử dụng ảnh rõ nét, độ phân giải tối thiểu 640x480",
+                        "Đảm bảo ánh sáng đều, không bị ngược sáng",
+                        "Khuôn mặt chiếm ít nhất 60% khung hình"
+                    ]
+                }
+            )
+
+        # 5) Xử lý nghiệp vụ
+        try:
+            # Căn chỉnh khuôn mặt
+            if not face_service.align_faces(name):
+                raise HTTPException(
+                    status_code=500,
+                    detail="Lỗi hệ thống khi căn chỉnh khuôn mặt"
+                )
+            
+            # Huấn luyện model
+            train_result = face_service.train_classifier()
+            if not train_result.get("success"):
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "error": "training_failed",
+                        "message": "Huấn luyện thất bại",
+                        "logs": train_result.get("logs")
+                    }
+                )
+
+            # Lưu database
+            db_face = FaceData(
+                id=face_id,
+                name=name,
+                registered_at=datetime.now()
+            )
+            db.add(db_face)
+            db.commit()
+
+            return {
+                "status": "success",
+                "face_id": face_id,
+                "valid_images": len(valid_images),
+                "warnings": [e["errors"] for e in error_details] if error_details else None
+            }
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Lỗi database: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Lỗi hệ thống khi lưu dữ liệu"
+            )
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Lỗi không xác định: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "server_error", "message": "Lỗi máy chủ không xác định"}
+        )
+
 
 @app.post("/recognition")
-async def recognize_face(image: UploadFile = File(...)):
+async def recognize_face(
+    # Xác thực API key trước khi xử lý ảnh
+    api_key: str = Depends(verify_api_key),  # 👈 Thêm dependency ở đây
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db)  # 👈 Nếu cần dùng database
+):
     """
-    Recognize faces in an uploaded image.
-
-    Returns:
-    - id: The unique ID of the recognized person
-    - name: The name of the recognized person
-    - confidence: The confidence score (0-1)
-    - registered_at: When the person was registered
+    Recognize faces in an uploaded image (API key required)
     """
     try:
         logger.info("Processing recognition request")
@@ -825,16 +889,14 @@ async def recognize_face(image: UploadFile = File(...)):
 
     except Exception as e:
         logger.error(f"Recognition error: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Recognition failed: {str(e)}")
-
-
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     return {"status": "ok"}
+
 
 @app.get("/faces", response_model=List[FaceListResponse])
 async def list_faces(db: Session = Depends(get_db)):

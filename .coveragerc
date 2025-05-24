@@ -1,0 +1,3 @@
+[report]
+exclude_lines =
+    config-\d+\.py  # Bỏ qua các file như config-3.py
