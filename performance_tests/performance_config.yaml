@@ -1,0 +1,52 @@
+
+# performance_config.yaml
+# Configuration file for performance tests
+
+service:
+  url: "http://localhost:8000"
+  timeout: 30
+  health_endpoint: "/health"
+
+test_scenarios:
+  basic:
+    iterations: 10
+    concurrent_users: [1, 5, 10]
+    image_sizes:
+      small: [320, 240]
+      medium: [640, 480]
+      large: [1280, 720]
+  
+  load_test:
+    users: 20
+    spawn_rate: 5
+    duration: "120s"
+    
+  stress_test:
+    users: 50
+    spawn_rate: 10
+    duration: "60s"
+    
+  spike_test:
+    baseline_users: 5
+    spike_users: 30
+    spike_duration: "30s"
+
+thresholds:
+  response_time:
+    health_check: 100  # ms
+    recognition: 5000  # ms
+    registration: 10000  # ms
+  
+  success_rate:
+    minimum: 95  # percent
+    
+  resource_usage:
+    max_cpu: 80  # percent
+    max_memory: 75  # percent
+
+reporting:
+  output_dir: "performance_results"
+  generate_charts: true
+  include_detailed_logs: true
+  chart_formats: ["png", "pdf"]
+
