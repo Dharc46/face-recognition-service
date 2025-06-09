@@ -53,8 +53,7 @@ class TestRegisterFlow(unittest.TestCase):
     @patch('src.application.SessionLocal')
     @patch('src.application.align.detect_face.create_mtcnn')
     @patch('tensorflow.Graph')
-    @patch('tensorflow.compat.v1.Session')
-    
+    @patch('tensorflow.compat.v1.Session')  
     def test_successful_registration(self, mock_tf_session, mock_tf_graph, mock_create_mtcnn, mock_session, mock_train, mock_align):
         # Set up mocks
         mock_align.return_value = True
