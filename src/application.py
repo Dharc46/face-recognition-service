@@ -644,7 +644,7 @@ face_service = FaceRecognitionService()
 
 
 def validate_image_quality(img_path: str) -> dict:
-    """Hàm helper validate chất lượng ảnh"""
+    """Hàm helper validate chất lượng ảnh với yêu cầu lỏng lẻo hơn"""
     img = cv2.imread(img_path)
     results = {"valid": True, "errors": []}
 
@@ -656,16 +656,16 @@ def validate_image_quality(img_path: str) -> dict:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Kiểm tra độ mờ
-    if cv2.Laplacian(gray, cv2.CV_64F).var() < 100:
+    if cv2.Laplacian(gray, cv2.CV_64F).var() < 50:  # Giảm ngưỡng từ 100 xuống 50
         results["valid"] = False
         results["errors"].append("Ảnh bị mờ (độ tương phản thấp)")
 
-    # Kiểm tra độ sáng
-    hist = cv2.calcHist([gray], [0], None, [256], [0,256])
-    if np.mean(hist[:64]) > 0.7*np.mean(hist[64:192]):  # Vùng tối chiếm ưu thế
+    # Kiểm tra độ sáng bằng giá trị trung bình pixel
+    mean_brightness = np.mean(gray)
+    if mean_brightness < 50:  # Ngưỡng 50 cho ảnh 8-bit (0-255)
         results["valid"] = False
         results["errors"].append("Ảnh thiếu sáng")
-    elif np.mean(hist[192:]) > 0.5*np.mean(hist[64:192]):  # Vùng sáng chiếm ưu thế
+    elif mean_brightness > 200:  # Ngưỡng cho ảnh quá sáng
         results["valid"] = False
         results["errors"].append("Ảnh dư sáng")
 
@@ -674,11 +674,10 @@ def validate_image_quality(img_path: str) -> dict:
 
 @app.post("/register")
 async def register_face(
-    # Xác thực API key trước tiên
-    api_key: str = Depends(verify_api_key),  # 👈 Thêm dependency
+    api_key: str = Depends(verify_api_key),
     name: str = Form(...),
     images: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)  # 👈 Sử dụng dependency injection cho database
+    db: Session = Depends(get_db)
 ):
     """
     Đăng ký một người mới với đúng 3 ảnh khuôn mặt (API key required)
@@ -708,12 +707,8 @@ async def register_face(
 
         for idx, image in enumerate(images, 1):
             img_path = os.path.join(person_dir, f"{face_id}_{idx}.jpg")
-            
-            # Lưu ảnh tạm
             with open(img_path, "wb") as f:
                 shutil.copyfileobj(image.file, f)
-            
-            # Validate chất lượng ảnh
             validation_result = validate_image_quality(img_path)
             if not validation_result["valid"]:
                 error_details.append({
@@ -721,7 +716,7 @@ async def register_face(
                     "position": idx,
                     "errors": validation_result["errors"]
                 })
-                os.remove(img_path)  # Xóa ảnh không hợp lệ
+                os.remove(img_path)
             else:
                 valid_images.append(img_path)
 
@@ -735,66 +730,55 @@ async def register_face(
                     "details": error_details,
                     "recommendations": [
                         "Sử dụng ảnh rõ nét, độ phân giải tối thiểu 640x480",
-                        "Đảm bảo ánh sáng đều, không bị ngược sáng",
-                        "Khuôn mặt chiếm ít nhất 60% khung hình"
+                        "Đảm bảo ánh sáng đều, không bị ngược sáng"
                     ]
                 }
             )
 
         # 5) Xử lý nghiệp vụ
-        try:
-            # Căn chỉnh khuôn mặt
-            if not face_service.align_faces(name):
-                raise HTTPException(
-                    status_code=500,
-                    detail="Lỗi hệ thống khi căn chỉnh khuôn mặt"
-                )
-            
-            # Huấn luyện model
-            train_result = face_service.train_classifier()
-            if not train_result.get("success"):
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "error": "training_failed",
-                        "message": "Huấn luyện thất bại",
-                        "logs": train_result.get("logs")
-                    }
-                )
-
-            # Lưu database
-            db_face = FaceData(
-                id=face_id,
-                name=name,
-                registered_at=datetime.now()
-            )
-            db.add(db_face)
-            db.commit()
-
-            return {
-                "status": "success",
-                "face_id": face_id,
-                "valid_images": len(valid_images),
-                "warnings": [e["errors"] for e in error_details] if error_details else None
-            }
-
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Lỗi database: {str(e)}")
+        # Căn chỉnh khuôn mặt
+        if not face_service.align_faces(name):
             raise HTTPException(
                 status_code=500,
-                detail="Lỗi hệ thống khi lưu dữ liệu"
+                detail="Lỗi hệ thống khi căn chỉnh khuôn mặt"
             )
+        
+        # Huấn luyện mô hình - Sửa lỗi ở đây
+        train_result = face_service.train_classifier()
+        if not train_result:  # Kiểm tra trực tiếp giá trị boolean
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "training_failed",
+                    "message": "Huấn luyện thất bại"
+                }
+            )
+
+        # Lưu database
+        db_face = FaceData(
+            id=face_id,
+            name=name,
+            registered_at=datetime.now()
+        )
+        db.add(db_face)
+        db.commit()
+
+        return {
+            "status": "success",
+            "face_id": face_id,
+            "valid_images": len(valid_images),
+            "warnings": [e["errors"] for e in error_details] if error_details else None
+        }
 
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"Lỗi không xác định: {str(e)}")
+        db.rollback()
+        logger.error(f"Lỗi database: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail={"error": "server_error", "message": "Lỗi máy chủ không xác định"}
+            detail="Lỗi hệ thống khi lưu dữ liệu"
         )
-
 
 @app.post("/recognition")
 async def recognize_face(
