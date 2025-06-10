@@ -50,3 +50,6 @@ ENV/
 
 # Temp files
 temp/
+
+.coverage
+performance_results/

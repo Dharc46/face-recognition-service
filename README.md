@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 ### 2. Download the model
 
-Create Models folder and download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the folder.
+Download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the Models folder.
 
 ### 3. Results
 
@@ -24,8 +24,18 @@ Redirect to src folder
 cd src
 ```
 
+You needs to set the API key, for example:
+
+```bash
+$env:API_KEY="your-secret-api-key"
+```
+
+Then run the server:
+
 ```bash
 python application.py
 ```
 
-Then go to http://127.0.0.1:8000/docs/ to see the result.
+Go to http://127.0.0.1:8000/docs/ to see the result.
+
+
