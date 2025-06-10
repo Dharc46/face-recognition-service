@@ -18,7 +18,7 @@ Download Facenet pretrained models (https://bit.ly/3ixQH7o) then put them in the
 
 ### 3. Results
 
-Redirect to src folder
+Redirect to src folder.
 
 ```bash
 cd src
